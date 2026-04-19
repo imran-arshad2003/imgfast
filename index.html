@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ImgFast – Privacy-first Image Converter</title>
+<meta name="description" content="Convert, compress and resize images instantly in your browser. No uploads. No servers. Your images never leave your device.">
+<meta name="keywords" content="image converter without upload, convert image locally in browser, offline image compressor, bulk image converter free no upload, privacy image tool">
+<meta property="og:title" content="ImgFast – Privacy-first Image Converter">
+<meta property="og:description" content="Convert, compress and resize images locally. 100% private — no uploads, no servers.">
+<meta name="theme-color" content="#0a0a0f">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=Space+Mono:wght@400;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c27;
+    --surface3: #24242f;
+    --border: #2a2a38;
+    --border2: #3a3a4d;
+    --accent: #6c6ef7;
+    --accent2: #4e50d6;
+    --accent-glow: rgba(108,110,247,0.15);
+    --accent-glow2: rgba(108,110,247,0.08);
+    --green: #22c55e;
+    --green-bg: rgba(34,197,94,0.1);
+    --green-border: rgba(34,197,94,0.25);
+    --red: #ef4444;
+    --red-bg: rgba(239,68,68,0.1);
+    --amber: #f59e0b;
+    --amber-bg: rgba(245,158,11,0.1);
+    --text: #f1f1f8;
+    --text2: #9191aa;
+    --text3: #5a5a72;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* Subtle grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(108,110,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(108,110,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Accent glow orbs */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    right: -200px;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(108,110,247,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -1px;
+    box-shadow: 0 0 20px rgba(108,110,247,0.3);
+  }
+
+  .logo-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .logo-tagline {
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.04em;
+    margin-top: 1px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    background: var(--accent-glow2);
+    border: 1px solid rgba(108,110,247,0.25);
+    color: #a5a6f6;
+    padding: 5px 12px;
+    border-radius: 20px;
+  }
+
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+  }
+
+  /* ── PRIVACY BAR ── */
+  .privacy-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--green-bg);
+    border: 1px solid var(--green-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    margin-bottom: 1.75rem;
+    font-size: 13px;
+    color: #86efac;
+  }
+
+  .privacy-bar svg { flex-shrink: 0; }
+
+  /* ── AD BANNER ── */
+  .ad-banner {
+    background: var(--surface);
+    border: 1px dashed var(--border2);
+    border-radius: var(--radius-sm);
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text3);
+    font-size: 12px;
+    margin-bottom: 1.75rem;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── DROP ZONE ── */
+  .drop-zone {
+    position: relative;
+    border: 2px dashed var(--border2);
+    border-radius: var(--radius-xl);
+    padding: 3.5rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    background: var(--surface);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+
+  .drop-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, var(--accent-glow2), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+
+  .drop-zone:hover::before,
+  .drop-zone.dragover::before { opacity: 1; }
+
+  .drop-zone:hover,
+  .drop-zone.dragover {
+    border-color: var(--accent);
+    background: #13131a;
+  }
+
+  .drop-zone input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+    font-size: 0;
+  }
+
+  .drop-icon-wrap {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.25rem;
+    font-size: 28px;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+
+  .drop-zone:hover .drop-icon-wrap,
+  .drop-zone.dragover .drop-icon-wrap {
+    transform: scale(1.05);
+    border-color: var(--accent);
+  }
+
+  .drop-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    color: var(--text);
+  }
+
+  .drop-sub {
+    font-size: 14px;
+    color: var(--text2);
+    margin-bottom: 1.25rem;
+  }
+
+  .drop-formats {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .fmt-pill {
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── CONTROLS ── */
+  .controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 1.5rem;
+  }
+
+  .ctrl-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    transition: border-color 0.2s;
+  }
+
+  .ctrl-card:hover { border-color: var(--border2); }
+
+  .ctrl-label {
+    font-size: 10px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.65rem;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+  }
+
+  .ctrl-card select {
+    width: 100%;
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235a5a72' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 30px;
+  }
+
+  .ctrl-card select:focus { border-color: var(--accent); }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .slider-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    border-radius: 4px;
+    background: var(--surface3);
+    outline: none;
+    cursor: pointer;
+  }
+
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 8px rgba(108,110,247,0.4);
+    transition: transform 0.15s;
+  }
+
+  .slider-row input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+  .slider-val {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    min-width: 38px;
+    text-align: right;
+  }
+
+  .resize-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .resize-row input[type=number] {
+    flex: 1;
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: 9px 8px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    text-align: center;
+    transition: border-color 0.2s;
+    min-width: 0;
+  }
+
+  .resize-row input[type=number]:focus { border-color: var(--accent); }
+
+  .resize-row input[type=number]::placeholder { color: var(--text3); }
+
+  .resize-x { color: var(--text3); font-size: 14px; flex-shrink: 0; }
+
+  .resize-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    margin-top: 8px;
+  }
+
+  .resize-check input { accent-color: var(--accent); cursor: pointer; }
+
+  /* ── ACTION BUTTONS ── */
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 1.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    box-shadow: 0 0 20px rgba(108,110,247,0.25);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 24px rgba(108,110,247,0.4);
+  }
+
+  .btn-primary:active:not(:disabled) { transform: translateY(0); }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border2);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    color: var(--text);
+    border-color: var(--border2);
+  }
+
+  .btn-danger {
+    background: var(--red-bg);
+    color: var(--red);
+    border: 1px solid rgba(239,68,68,0.25);
+  }
+
+  .btn-danger:hover:not(:disabled) { background: rgba(239,68,68,0.15); }
+
+  .btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  .btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+
+  .btn-xs {
+    padding: 4px 9px;
+    font-size: 11px;
+    border-radius: 5px;
+  }
+
+  /* ── STATS BAR ── */
+  .stats-section { margin-bottom: 1.5rem; }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+
+  .section-title {
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+  }
+
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem 1rem;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 3px;
+  }
+
+  /* ── FILE CARDS ── */
+  .files-section { margin-bottom: 1.5rem; }
+
+  .files-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .file-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    gap: 14px;
+    align-items: start;
+    transition: border-color 0.2s;
+  }
+
+  .file-card:hover { border-color: var(--border2); }
+
+  .file-card.status-done { border-color: rgba(34,197,94,0.2); }
+  .file-card.status-error { border-color: rgba(239,68,68,0.2); }
+  .file-card.status-processing { border-color: rgba(108,110,247,0.25); }
+
+  .file-thumb {
+    width: 60px;
+    height: 60px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: var(--surface3);
+    display: block;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .file-thumb-placeholder {
+    width: 60px;
+    height: 60px;
+    border-radius: 10px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .file-info { min-width: 0; }
+
+  .file-name {
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+
+  .file-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 6px;
+  }
+
+  .file-meta .sep { color: var(--border2); }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+
+  .s-idle    { background: rgba(91,91,114,0.2); color: var(--text3); }
+  .s-proc    { background: rgba(108,110,247,0.15); color: #a5a6f6; }
+  .s-done    { background: rgba(34,197,94,0.12); color: #86efac; }
+  .s-error   { background: rgba(239,68,68,0.12); color: #fca5a5; }
+
+  .progress-bar {
+    height: 3px;
+    background: var(--surface3);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #a5a6f6);
+    border-radius: 3px;
+    transition: width 0.35s ease;
+    width: 0%;
+  }
+
+  .size-diff {
+    font-size: 11px;
+    font-family: 'Space Mono', monospace;
+    margin-top: 4px;
+    display: inline-block;
+  }
+
+  .size-diff.saved { color: var(--green); }
+  .size-diff.bigger { color: var(--amber); }
+
+  .file-error-msg {
+    font-size: 11px;
+    color: var(--red);
+    margin-top: 4px;
+  }
+
+  .file-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+
+  .remove-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    color: var(--text3);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    line-height: 1;
+    transition: all 0.15s;
+    font-family: monospace;
+  }
+
+  .remove-btn:hover {
+    border-color: var(--red);
+    color: var(--red);
+    background: var(--red-bg);
+  }
+
+  /* ── POST-CONVERT AD ── */
+  .ad-post-convert {
+    background: var(--surface);
+    border: 1px dashed var(--border2);
+    border-radius: var(--radius-sm);
+    height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text3);
+    font-size: 12px;
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── STICKY BOTTOM AD (mobile) ── */
+  .ad-sticky {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    align-items: center;
+    justify-content: center;
+    color: var(--text3);
+    font-size: 12px;
+    z-index: 100;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    color: var(--text3);
+    font-size: 12px;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+    margin-top: 2rem;
+  }
+
+  footer strong { color: var(--text2); }
+
+  /* ── TOAST ── */
+  .toast-container {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .toast {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--text);
+    animation: slideIn 0.2s ease;
+    max-width: 280px;
+  }
+
+  .toast.toast-success { border-color: var(--green-border); color: #86efac; }
+  .toast.toast-error { border-color: rgba(239,68,68,0.3); color: #fca5a5; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 700px) {
+    header { flex-direction: column; gap: 1rem; align-items: flex-start; }
+    .controls-grid { grid-template-columns: 1fr; }
+    .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    .file-card { grid-template-columns: 48px 1fr auto; }
+    .file-thumb, .file-thumb-placeholder { width: 48px; height: 48px; }
+    .ad-sticky { display: flex; }
+    .app { padding-bottom: 5rem; }
+    .actions { gap: 8px; }
+    .btn { padding: 9px 16px; font-size: 13px; }
+  }
+
+  @media (max-width: 480px) {
+    .stats-bar { grid-template-columns: 1fr 1fr; }
+    .stat-val { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- STICKY BOTTOM AD (mobile) -->
+<div class="ad-sticky">[ Ad Placement – 320×50 Mobile Banner ]</div>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">if</div>
+      <div>
+        <div class="logo-text">Img<span>Fast</span></div>
+        <div class="logo-tagline">Privacy-first image converter</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        Local processing
+      </div>
+    </div>
+  </header>
+
+  <!-- TOP AD BANNER -->
+  <div class="ad-banner">[ Ad Placement – 728×60 Header Leaderboard ]</div>
+
+  <!-- PRIVACY BAR -->
+  <div class="privacy-bar">
+    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+    <span><strong>100% private.</strong> Your images never leave your device — no uploads, no servers, no tracking. Everything runs locally in your browser.</span>
+  </div>
+
+  <!-- DROP ZONE -->
+  <div class="drop-zone" id="dropZone">
+    <input type="file" id="fileInput" multiple accept="image/jpeg,image/jpg,image/png,image/webp">
+    <div class="drop-icon-wrap">⚡</div>
+    <div class="drop-title">Drop images here or click to browse</div>
+    <div class="drop-sub">Up to 10 images · Max 5 MB each · Processed instantly in your browser</div>
+    <div class="drop-formats">
+      <span class="fmt-pill">JPG</span>
+      <span class="fmt-pill">PNG</span>
+      <span class="fmt-pill">WebP</span>
+      <span class="fmt-pill">→ Convert any to any</span>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls-grid">
+    <div class="ctrl-card">
+      <div class="ctrl-label">Output Format</div>
+      <select id="formatSelect">
+        <option value="image/jpeg">JPG — smallest size</option>
+        <option value="image/png">PNG — lossless quality</option>
+        <option value="image/webp" selected>WebP — best ratio</option>
+      </select>
+    </div>
+
+    <div class="ctrl-card">
+      <div class="ctrl-label">Quality / Compression</div>
+      <div class="slider-row">
+        <input type="range" id="qualitySlider" min="10" max="100" value="82" step="1">
+        <span class="slider-val" id="qualityVal">82%</span>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">PNG ignores quality (lossless)</div>
+    </div>
+
+    <div class="ctrl-card">
+      <div class="ctrl-label">Resize (optional)</div>
+      <div class="resize-row">
+        <input type="number" id="resizeW" placeholder="Width" min="1" max="8000">
+        <span class="resize-x">×</span>
+        <input type="number" id="resizeH" placeholder="Height" min="1" max="8000">
+      </div>
+      <label class="resize-check">
+        <input type="checkbox" id="aspectLock" checked>
+        Lock aspect ratio
+      </label>
+    </div>
+  </div>
+
+  <!-- ACTION BUTTONS -->
+  <div class="actions">
+    <button class="btn btn-primary" id="convertBtn" disabled>
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      Convert All
+    </button>
+    <button class="btn btn-secondary" id="zipBtn" disabled>
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download ZIP
+    </button>
+    <button class="btn btn-ghost" id="clearBtn" disabled>Clear All</button>
+  </div>
+
+  <!-- STATS (hidden until conversions done) -->
+  <div class="stats-section" id="statsSection" style="display:none">
+    <div class="section-header">
+      <div class="section-title">Results Summary</div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-val" id="statFiles">0</div>
+        <div class="stat-label">Converted</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statOrigSize" style="color:var(--text2)">0 KB</div>
+        <div class="stat-label">Original size</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statNewSize" style="color:var(--accent)">0 KB</div>
+        <div class="stat-label">New size</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statSaved" style="color:var(--green)">0 KB</div>
+        <div class="stat-label">Total saved</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILE LIST -->
+  <div class="files-section" id="filesSection" style="display:none">
+    <div class="section-header">
+      <div class="section-title">Files</div>
+      <span id="fileCount" style="font-size:12px;color:var(--text3)"></span>
+    </div>
+    <div class="files-grid" id="filesGrid"></div>
+  </div>
+
+  <!-- POST-CONVERT AD (shown after first conversion) -->
+  <div class="ad-post-convert" id="adPostConvert" style="display:none">
+    [ Ad Placement – 728×90 After Conversion (High CTR) ]
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>Built with <strong>Canvas API</strong> · <strong>Web Workers</strong> · <strong>JSZip</strong> · 100% client-side</p>
+    <p style="margin-top:6px">Keywords: image converter without upload · convert image locally · offline image compressor · bulk image converter free</p>
+  </footer>
+
+</div>
+
+<script>
+/* ============================================================
+   IMGFAST – FULLY CLIENT-SIDE IMAGE PROCESSOR
+   Architecture:
+   - Web Workers (inline via Blob URL) for off-main-thread processing
+   - createImageBitmap() + OffscreenCanvas for fast decoding/rendering
+   - Queue system (concurrency = 2) for controlled bulk processing
+   - JSZip for bulk download
+   ============================================================ */
+
+const CONCURRENCY = 2;
+const MAX_FILES   = 10;
+const MAX_SIZE_MB = 5;
+const MAX_SIZE    = MAX_SIZE_MB * 1024 * 1024;
+
+let files       = [];   // Array of file state objects
+let outputBlobs = {};   // { index: { blob, name } }
+
+// ── UTILS ──────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const fmtSize = bytes => {
+  if (bytes < 1024)    return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(2) + ' MB';
+};
+
+function extFor(mime) {
+  return { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[mime] || 'jpg';
+}
+
+function showToast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  $('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ── WEB WORKER (inline) ────────────────────────────────────
+const WORKER_SRC = `
+self.onmessage = async (e) => {
+  const { id, fileData, format, quality, resizeW, resizeH, lockAspect } = e.data;
+  try {
+    self.postMessage({ id, type: 'progress', value: 10 });
+
+    // Decode image
+    const blob   = new Blob([fileData]);
+    const bitmap = await createImageBitmap(blob);
+    self.postMessage({ id, type: 'progress', value: 40 });
+
+    // Compute target dimensions
+    let tw = bitmap.width;
+    let th = bitmap.height;
+
+    if (resizeW || resizeH) {
+      if (resizeW && resizeH && lockAspect) {
+        const ratio = Math.min(resizeW / bitmap.width, resizeH / bitmap.height);
+        tw = Math.round(bitmap.width * ratio);
+        th = Math.round(bitmap.height * ratio);
+      } else if (resizeW && !resizeH && lockAspect) {
+        tw = resizeW;
+        th = Math.round(bitmap.height * (resizeW / bitmap.width));
+      } else if (!resizeW && resizeH && lockAspect) {
+        th = resizeH;
+        tw = Math.round(bitmap.width * (resizeH / bitmap.height));
+      } else {
+        if (resizeW) tw = resizeW;
+        if (resizeH) th = resizeH;
+      }
+    }
+
+    // Draw to OffscreenCanvas
+    const canvas = new OffscreenCanvas(tw, th);
+    const ctx    = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0, tw, th);
+    bitmap.close();
+    self.postMessage({ id, type: 'progress', value: 75 });
+
+    // Encode
+    const q       = format === 'image/png' ? undefined : quality / 100;
+    const outBlob = await canvas.convertToBlob({ type: format, quality: q });
+    const arrBuf  = await outBlob.arrayBuffer();
+
+    self.postMessage({ id, type: 'done', data: arrBuf, size: arrBuf.byteLength }, [arrBuf]);
+  } catch (err) {
+    self.postMessage({ id, type: 'error', message: err.message || 'Unknown error' });
+  }
+};
+`;
+
+function spawnWorker() {
+  const blob = new Blob([WORKER_SRC], { type: 'application/javascript' });
+  const url  = URL.createObjectURL(blob);
+  const w    = new Worker(url);
+  URL.revokeObjectURL(url); // cleanup
+  return w;
+}
+
+// ── RENDER FILES ───────────────────────────────────────────
+function renderFiles() {
+  if (!files.length) {
+    $('filesSection').style.display = 'none';
+    $('fileCount').textContent = '';
+    updateActionButtons();
+    return;
+  }
+
+  $('filesSection').style.display = 'block';
+  $('fileCount').textContent = `${files.length} / ${MAX_FILES}`;
+
+  const grid = $('filesGrid');
+  grid.innerHTML = '';
+
+  files.forEach((f, i) => {
+    const card = document.createElement('div');
+    card.className = `file-card status-${f.status}`;
+    card.id = `card-${i}`;
+
+    const thumbHtml = f.preview
+      ? `<img class="file-thumb" src="${f.preview}" alt="${f.name}">`
+      : `<div class="file-thumb-placeholder">🖼</div>`;
+
+    const statusLabel = { idle: 'ready', processing: 'processing', done: 'done', error: 'error' }[f.status];
+    const statusClass = { idle: 's-idle', processing: 's-proc', done: 's-done', error: 's-error' }[f.status];
+
+    const outSizeHtml = f.outSize && f.status === 'done'
+      ? `<span class="sep">→</span><span>${fmtSize(f.outSize)}</span>` : '';
+
+    const sizeDiffHtml = (() => {
+      if (!f.outSize || f.status !== 'done') return '';
+      const saved = f.size - f.outSize;
+      const pct   = Math.round((1 - f.outSize / f.size) * 100);
+      if (saved > 0) return `<div class="size-diff saved">▼ ${fmtSize(saved)} saved (${pct}% smaller)</div>`;
+      return `<div class="size-diff bigger">▲ ${fmtSize(-saved)} larger — try higher quality or lossless PNG</div>`;
+    })();
+
+    const dlBtnHtml = (f.status === 'done' && outputBlobs[i])
+      ? `<button class="btn btn-ghost btn-sm" onclick="downloadOne(${i})">⬇ Save</button>` : '';
+
+    const errorHtml = f.error
+      ? `<div class="file-error-msg">⚠ ${f.error}</div>` : '';
+
+    card.innerHTML = `
+      ${thumbHtml}
+      <div class="file-info">
+        <div class="file-name" title="${f.name}">${f.name}</div>
+        <div class="file-meta">
+          <span>${fmtSize(f.size)}</span>
+          ${outSizeHtml}
+          <span class="status-badge ${statusClass}">${statusLabel}</span>
+        </div>
+        ${sizeDiffHtml}
+        ${errorHtml}
+        <div class="progress-bar">
+          <div class="progress-fill" id="prog-${i}" style="width:${f.progress || 0}%"></div>
+        </div>
+      </div>
+      <div class="file-actions">
+        <button class="remove-btn" onclick="removeFile(${i})" title="Remove">✕</button>
+        ${dlBtnHtml}
+      </div>
+    `;
+
+    grid.appendChild(card);
+  });
+
+  updateActionButtons();
+}
+
+function updateCardInPlace(i) {
+  const card = $(`card-${i}`);
+  if (!card) { renderFiles(); return; }
+
+  const f = files[i];
+  card.className = `file-card status-${f.status}`;
+
+  // Progress bar
+  const prog = $(`prog-${i}`);
+  if (prog) prog.style.width = (f.progress || 0) + '%';
+
+  // Status badge
+  const badge = card.querySelector('.status-badge');
+  if (badge) {
+    badge.className = 'status-badge ' + { idle: 's-idle', processing: 's-proc', done: 's-done', error: 's-error' }[f.status];
+    badge.textContent = { idle: 'ready', processing: 'processing', done: 'done', error: 'error' }[f.status];
+  }
+
+  if (f.status === 'done' || f.status === 'error') {
+    // Refresh card fully for done/error to show size diff and DL button
+    renderFiles();
+  }
+}
+
+// ── STATS ──────────────────────────────────────────────────
+function updateStats() {
+  const done = files.filter(f => f.status === 'done');
+  if (!done.length) { $('statsSection').style.display = 'none'; return; }
+
+  $('statsSection').style.display = 'block';
+  $('adPostConvert').style.display = 'flex';
+
+  const origTotal = done.reduce((a, f) => a + f.size, 0);
+  const newTotal  = done.reduce((a, f) => a + (f.outSize || f.size), 0);
+  const saved     = origTotal - newTotal;
+
+  $('statFiles').textContent   = done.length;
+  $('statOrigSize').textContent = fmtSize(origTotal);
+  $('statNewSize').textContent  = fmtSize(newTotal);
+  $('statSaved').textContent    = (saved >= 0 ? '' : '-') + fmtSize(Math.abs(saved));
+  $('statSaved').style.color    = saved > 0 ? 'var(--green)' : 'var(--amber)';
+}
+
+// ── ACTION BUTTONS ─────────────────────────────────────────
+function updateActionButtons() {
+  const hasFiles = files.length > 0;
+  const hasOutput = Object.keys(outputBlobs).length > 0;
+  const allDone = hasFiles && files.every(f => f.status === 'done' || f.status === 'error');
+
+  $('convertBtn').disabled = !hasFiles;
+  $('clearBtn').disabled   = !hasFiles;
+  $('zipBtn').disabled     = !hasOutput;
+}
+
+// ── FILE PROCESSING QUEUE ──────────────────────────────────
+async function runProcessingQueue() {
+  const format     = $('formatSelect').value;
+  const quality    = parseInt($('qualitySlider').value);
+  const resizeW    = parseInt($('resizeW').value) || 0;
+  const resizeH    = parseInt($('resizeH').value) || 0;
+  const lockAspect = $('aspectLock').checked;
+
+  // Reset done/error files to idle so they re-process
+  files.forEach(f => {
+    if (f.status === 'done' || f.status === 'error') {
+      f.status = 'idle';
+      f.progress = 0;
+      f.outSize = null;
+      f.error = null;
+    }
+  });
+
+  const pending = files.map((f, i) => ({ f, i })).filter(({ f }) => f.status === 'idle');
+  if (!pending.length) return;
+
+  renderFiles(); // Show idle state reset
+
+  const queue = [...pending];
+  let active  = 0;
+
+  await new Promise(resolve => {
+    function tryNext() {
+      while (active < CONCURRENCY && queue.length) {
+        const { f, i } = queue.shift();
+        active++;
+        f.status   = 'processing';
+        f.progress = 5;
+        updateCardInPlace(i);
+
+        const worker = spawnWorker();
+        const reader = new FileReader();
+
+        reader.onload = () => {
+          const arrBuf = reader.result;
+          worker.postMessage(
+            { id: i, fileData: arrBuf, format, quality, resizeW, resizeH, lockAspect },
+            [arrBuf]
+          );
+        };
+        reader.onerror = () => {
+          f.status = 'error';
+          f.error  = 'File read failed';
+          updateCardInPlace(i);
+          worker.terminate();
+          active--;
+          finish();
+        };
+        reader.readAsArrayBuffer(f.file);
+
+        worker.onmessage = (e) => {
+          const d = e.data;
+          if (d.type === 'progress') {
+            f.progress = d.value;
+            const prog = $(`prog-${i}`);
+            if (prog) prog.style.width = d.value + '%';
+          } else if (d.type === 'done') {
+            const ext  = extFor(format);
+            const base = f.name.replace(/\.[^.]+$/, '');
+            const blob = new Blob([d.data], { type: format });
+            outputBlobs[i] = { blob, name: `${base}-imgfast.${ext}` };
+            f.status   = 'done';
+            f.progress = 100;
+            f.outSize  = d.size;
+            updateStats();
+            updateCardInPlace(i);
+            worker.terminate();
+            active--;
+            finish();
+          } else if (d.type === 'error') {
+            f.status = 'error';
+            f.error  = d.message;
+            f.progress = 0;
+            updateCardInPlace(i);
+            worker.terminate();
+            active--;
+            finish();
+          }
+        };
+
+        worker.onerror = (err) => {
+          f.status = 'error';
+          f.error  = 'Worker crashed';
+          updateCardInPlace(i);
+          worker.terminate();
+          active--;
+          finish();
+        };
+      }
+
+      function finish() {
+        tryNext();
+        if (active === 0 && queue.length === 0) resolve();
+      }
+    }
+
+    tryNext();
+  });
+}
+
+// ── ADD FILES ──────────────────────────────────────────────
+function addFiles(fileList) {
+  let added = 0, skipped = 0, tooLarge = [];
+
+  Array.from(fileList).forEach(file => {
+    if (files.length >= MAX_FILES) { skipped++; return; }
+    if (!file.type.match(/^image\/(jpeg|jpg|png|webp)$/i)) { skipped++; return; }
+    if (file.size > MAX_SIZE) { tooLarge.push(file.name); return; }
+
+    const preview = URL.createObjectURL(file);
+    files.push({
+      file, name: file.name, size: file.size,
+      status: 'idle', progress: 0,
+      outSize: null, error: null, preview
+    });
+    added++;
+  });
+
+  if (tooLarge.length) showToast(`${tooLarge.length} file(s) over ${MAX_SIZE_MB}MB were skipped.`, 'error');
+  if (files.length >= MAX_FILES && skipped) showToast(`Max ${MAX_FILES} files reached.`, 'info');
+
+  renderFiles();
+  updateStats();
+}
+
+// ── REMOVE FILE ────────────────────────────────────────────
+function removeFile(i) {
+  const f = files[i];
+  if (f.preview) URL.revokeObjectURL(f.preview);
+  if (outputBlobs[i]) delete outputBlobs[i];
+
+  files.splice(i, 1);
+
+  // Re-index outputBlobs
+  const newBlobs = {};
+  Object.keys(outputBlobs).forEach(k => {
+    const ki = parseInt(k);
+    if (ki > i) newBlobs[ki - 1] = outputBlobs[k];
+    else if (ki < i) newBlobs[ki] = outputBlobs[k];
+  });
+  outputBlobs = newBlobs;
+
+  renderFiles();
+  updateStats();
+  updateActionButtons();
+}
+
+// ── DOWNLOAD SINGLE ────────────────────────────────────────
+function downloadOne(i) {
+  const ob = outputBlobs[i];
+  if (!ob) return;
+  const url = URL.createObjectURL(ob.blob);
+  const a   = Object.assign(document.createElement('a'), { href: url, download: ob.name });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+// ── DOWNLOAD ZIP ───────────────────────────────────────────
+async function downloadZip() {
+  const keys = Object.keys(outputBlobs);
+  if (!keys.length) return;
+
+  const btn = $('zipBtn');
+  btn.disabled   = true;
+  btn.textContent = 'Creating ZIP…';
+
+  try {
+    const zip = new JSZip();
+    for (const k of keys) {
+      const { blob, name } = outputBlobs[k];
+      zip.file(name, await blob.arrayBuffer());
+    }
+
+    const zipBlob = await zip.generateAsync({
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    });
+
+    const url = URL.createObjectURL(zipBlob);
+    const a   = Object.assign(document.createElement('a'), { href: url, download: 'imgfast-converted.zip' });
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    showToast(`ZIP downloaded — ${keys.length} file(s)`, 'success');
+  } catch (err) {
+    showToast('ZIP creation failed: ' + err.message, 'error');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download ZIP`;
+}
+
+// ── EVENT LISTENERS ────────────────────────────────────────
+const dropZone = $('dropZone');
+
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', e => {
+  if (!dropZone.contains(e.relatedTarget)) dropZone.classList.remove('dragover');
+});
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  addFiles(e.dataTransfer.files);
+});
+
+$('fileInput').addEventListener('change', e => {
+  addFiles(e.target.files);
+  e.target.value = ''; // reset so same file can be re-added after clearing
+});
+
+$('qualitySlider').addEventListener('input', () => {
+  $('qualityVal').textContent = $('qualitySlider').value + '%';
+});
+
+$('convertBtn').addEventListener('click', async () => {
+  const btn      = $('convertBtn');
+  btn.disabled   = true;
+  btn.innerHTML  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Processing…`;
+
+  await runProcessingQueue();
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Convert All`;
+  updateActionButtons();
+
+  const doneCount = files.filter(f => f.status === 'done').length;
+  if (doneCount) showToast(`${doneCount} image(s) converted successfully!`, 'success');
+});
+
+$('clearBtn').addEventListener('click', () => {
+  files.forEach(f => { if (f.preview) URL.revokeObjectURL(f.preview); });
+  files = [];
+  outputBlobs = {};
+  renderFiles();
+  updateStats();
+  $('statsSection').style.display = 'none';
+  $('adPostConvert').style.display = 'none';
+  updateActionButtons();
+});
+
+$('zipBtn').addEventListener('click', downloadZip);
+
+// Warn on very large files
+$('fileInput').addEventListener('change', () => {}, false);
+
+// Keyboard shortcut: Ctrl/Cmd + Enter to convert
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !$('convertBtn').disabled) {
+    $('convertBtn').click();
+  }
+});
+</script>
+</body>
+</html>
